@@ -5,46 +5,74 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard - ERP Portal</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="dashboard.css">
 </head>
 <body>
   <div id="header"></div>
   <main>
     <!-- Add Query Button -->
     <div id="addQueryContainer" class="card">
-      <button id="showFormBtn">+ Add New Query</button>
+      <button id="showFormBtn" class="btn btn-primary">+ Add New Query</button>
     </div>
 
-    <!-- Query Form (hidden by default) -->
+    <!-- Query Form -->
     <div class="card" id="queryCard" style="display: none;">
       <h2 id="formTitle">New Client Query</h2>
       <form id="queryForm">
-        <label>Date</label>
-        <input type="text" id="date" readonly />
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="date">Date*</label>
+            <input type="date" id="date" required />
+          </div>
 
-        <label for="clientName">Client Name</label>
-        <input type="text" id="clientName" required />
+          <div class="form-group">
+            <label for="clientName">Client Name*</label>
+            <input type="text" id="clientName" required placeholder="Enter client name" />
+          </div>
 
-        <label for="clientType">Client Type</label>
-        <input type="text" id="clientType" required />
+          <div class="form-group">
+            <label for="clientType">Client Type*</label>
+            <input type="text" id="clientType" required placeholder="Enter client type" />
+          </div>
 
-        <label for="location">Location</label>
-        <input type="text" id="location" required />
+          <div class="form-group">
+            <label for="location">Location*</label>
+            <input type="text" id="location" required placeholder="Enter location" />
+          </div>
 
-        <label for="areaSqft">Area (sqft)</label>
-        <input type="number" id="areaSqft" step="0.01" required />
+          <div class="form-group">
+            <label for="areaSqft">Area (sqft)*</label>
+            <input type="number" id="areaSqft" step="0.01" required placeholder="Enter area in square feet" />
+          </div>
 
-        <label for="specification">Specification</label>
-        <textarea id="specification" rows="4"></textarea>
+          <div class="form-group full-width">
+            <label for="specification">Specification</label>
+            <textarea id="specification" rows="4" placeholder="Enter specifications"></textarea>
+          </div>
 
-        <label for="proposedAmount">Proposed Amount</label>
-        <input type="number" id="proposedAmount" step="0.01" required />
+          <div class="form-group">
+            <label for="proposedAmount">Proposed Amount*</label>
+            <input type="number" id="proposedAmount" step="0.01" required placeholder="Enter proposed amount" />
+          </div>
 
-        <label for="finalAmount">Final Amount</label>
-        <input type="number" id="finalAmount" step="0.01" />
+          <div class="form-group">
+            <label for="finalAmount">Final Amount</label>
+            <input type="number" id="finalAmount" step="0.01" placeholder="Enter final amount" />
+          </div>
 
-        <div class="btn-group">
-          <button type="submit" id="submitBtn">Save Query</button>
-          <button type="button" id="cancelFormBtn">Cancel</button>
+          <div class="form-group">
+            <label for="status">Status*</label>
+            <select id="status" required class="form-select">
+              <option value="Ongoing">Ongoing</option>
+              <option value="Approved">Approved</option>
+              <option value="Closed">Closed</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button type="submit" id="submitBtn" class="btn btn-primary">Save Query</button>
+          <button type="button" id="cancelFormBtn" class="btn btn-secondary">Cancel</button>
         </div>
       </form>
     </div>
@@ -52,7 +80,7 @@
     <!-- Saved Queries Table -->
     <div class="card">
       <h2>Saved Queries</h2>
-      <table id="queriesTable">
+      <table id="queriesTable" class="queries-table">
         <thead>
           <tr>
             <th>ID</th>
@@ -88,104 +116,142 @@
       const emptyMsg = document.getElementById('emptyMsg');
       let editingId = null;
 
+      // Form handlers
       showBtn.addEventListener('click', () => openForm());
       cancelBtn.addEventListener('click', () => resetForm());
 
+      // Form submission handler with validation
       form.addEventListener('submit', async e => {
         e.preventDefault();
-        const payload = {
-          clientName: document.getElementById('clientName').value,
-          clientType: document.getElementById('clientType').value,
-          location: document.getElementById('location').value,
-          areaSqft: parseFloat(document.getElementById('areaSqft').value),
-          specification: document.getElementById('specification').value,
-          proposedAmount: parseFloat(document.getElementById('proposedAmount').value),
-          finalAmount: parseFloat(document.getElementById('finalAmount').value) || null,
-          status: 'Ongoing'
-        };
 
-        const url = editingId ? `/api/queries/${editingId}` : '/api/queries';
-        const method = editingId ? 'PUT' : 'POST';
+        try {
+          const payload = {
+            clientName: document.getElementById('clientName').value.trim(),
+            clientType: document.getElementById('clientType').value.trim(),
+            location: document.getElementById('location').value.trim(),
+            areaSqft: parseFloat(document.getElementById('areaSqft').value),
+            specification: document.getElementById('specification').value.trim(),
+            proposedAmount: parseFloat(document.getElementById('proposedAmount').value),
+            finalAmount: document.getElementById('finalAmount').value ? parseFloat(document.getElementById('finalAmount').value) : null,
+            status: document.getElementById('status').value
+          };
 
-        await fetch(url, {
-          method,
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
-          body: JSON.stringify(payload)
-        });
+          // Basic validation
+          if (!payload.clientName || !payload.clientType || !payload.location) {
+            throw new Error('Please fill in all required fields');
+          }
 
-        resetForm();
-        loadQueries();
+          if (isNaN(payload.areaSqft) || payload.areaSqft <= 0) {
+            throw new Error('Please enter a valid area');
+          }
+
+          if (isNaN(payload.proposedAmount) || payload.proposedAmount <= 0) {
+            throw new Error('Please enter a valid proposed amount');
+          }
+
+          const url = editingId ? `/api/queries/${editingId}` : '/api/queries';
+          const method = editingId ? 'PUT' : 'POST';
+
+          const response = await fetch(url, {
+            method,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + localStorage.getItem('token')
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to save query');
+          }
+
+          resetForm();
+          loadQueries();
+        } catch (error) {
+          alert(error.message);
+        }
       });
 
+      // Load queries with error handling
       async function loadQueries() {
-        const res = await fetch('/api/queries', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
-        const queries = await res.json();
-        const tbody = document.querySelector('#queriesTable tbody');
-        tbody.innerHTML = '';
+        try {
+          const res = await fetch('/api/queries', {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+          });
 
-        if (queries.length === 0) {
-          emptyMsg.style.display = 'block';
-          return;
-        } else {
+          if (!res.ok) {
+            throw new Error('Failed to load queries');
+          }
+
+          const queries = await res.json();
+          const tbody = document.querySelector('#queriesTable tbody');
+          tbody.innerHTML = '';
+
+          if (queries.length === 0) {
+            emptyMsg.style.display = 'block';
+            return;
+          }
+
           emptyMsg.style.display = 'none';
+
+          queries.forEach(q => {
+            const row = document.createElement('tr');
+            const status = q.status || 'Ongoing';
+
+            row.innerHTML = `
+              <td>${q.id}</td>
+              <td>${new Date(q.created_at).toLocaleDateString()}</td>
+              <td>${q.client_name}</td>
+              <td>${q.client_type}</td>
+              <td>${q.location}</td>
+              <td>${q.area_sqft}</td>
+              <td>${q.proposed_amount}</td>
+              <td>${q.final_amount || ''}</td>
+              <td><span class="status-badge status-${status.toLowerCase()}">${status}</span></td>
+              <td class="action-buttons">
+                <button onclick="editFull(${q.id})" class="btn btn-secondary">Edit</button>
+              </td>
+            `;
+            tbody.appendChild(row);
+          });
+        } catch (error) {
+          alert('Failed to load queries: ' + error.message);
         }
-
-        queries.forEach(q => {
-          const row = document.createElement('tr');
-          const status = q.status || 'Ongoing';
-          let statusClass = '';
-          if (status === 'Ongoing') statusClass = 'status-ongoing';
-          if (status === 'Approved') statusClass = 'status-approved';
-          if (status === 'Closed') statusClass = 'status-closed';
-
-          row.innerHTML = `
-            <td>${q.id}</td>
-            <td>${new Date(q.created_at).toLocaleDateString()}</td>
-            <td>${q.client_name}</td>
-            <td>${q.client_type}</td>
-            <td>${q.location}</td>
-            <td>${q.area_sqft}</td>
-            <td>${q.proposed_amount}</td>
-            <td>${q.final_amount || ''}</td>
-            <td><span class="${statusClass}">${status}</span></td>
-            <td>
-              <button onclick="editFull(${q.id})">Edit</button>
-              <button onclick="updateStatus(${q.id}, 'Ongoing')">Ongoing</button>
-              <button onclick="updateStatus(${q.id}, 'Approved')">Approve</button>
-              <button onclick="updateStatus(${q.id}, 'Closed')">Close</button>
-            </td>
-          `;
-          tbody.appendChild(row);
-        });
       }
 
+      // Edit query handler with error handling
       window.editFull = async function(id) {
-        const res = await fetch(`/api/queries/${id}`, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
-        const q = await res.json();
+        try {
+          const res = await fetch(`/api/queries/${id}`, {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+          });
 
-        editingId = id;
-        formTitle.textContent = 'Edit Client Query';
-        submitBtn.textContent = 'Update Query';
-        formCard.style.display = 'block';
-        addContainer.style.display = 'none';
+          if (!res.ok) {
+            throw new Error('Failed to load query details');
+          }
 
-        document.getElementById('date').value = new Date(q.created_at).toISOString().slice(0,10);
-        document.getElementById('clientName').value = q.client_name;
-        document.getElementById('clientType').value = q.client_type;
-        document.getElementById('location').value = q.location;
-        document.getElementById('areaSqft').value = q.area_sqft;
-        document.getElementById('specification').value = q.specification;
-        document.getElementById('proposedAmount').value = q.proposed_amount;
-        document.getElementById('finalAmount').value = q.final_amount;
-      };
+          const q = await res.json();
 
-      window.updateStatus = async function(id, status) {
-        await fetch(`/api/queries/${id}/status`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
-          body: JSON.stringify({ status })
-        });
-        loadQueries();
+          editingId = id;
+          formTitle.textContent = 'Edit Client Query';
+          submitBtn.textContent = 'Update Query';
+
+          document.getElementById('date').value = new Date(q.created_at).toISOString().slice(0,10);
+          document.getElementById('clientName').value = q.client_name;
+          document.getElementById('clientType').value = q.client_type;
+          document.getElementById('location').value = q.location;
+          document.getElementById('areaSqft').value = q.area_sqft;
+          document.getElementById('specification').value = q.specification;
+          document.getElementById('proposedAmount').value = q.proposed_amount;
+          document.getElementById('finalAmount').value = q.final_amount || '';
+          document.getElementById('status').value = q.status || 'Ongoing';
+
+          formCard.style.display = 'block';
+          addContainer.style.display = 'none';
+        } catch (error) {
+          alert('Failed to load query: ' + error.message);
+        }
       };
 
       function openForm() {
@@ -193,6 +259,7 @@
         formTitle.textContent = 'New Client Query';
         submitBtn.textContent = 'Save Query';
         document.getElementById('date').value = new Date().toISOString().slice(0,10);
+        document.getElementById('status').value = 'Ongoing';
         form.reset();
         formCard.style.display = 'block';
         addContainer.style.display = 'none';
@@ -205,6 +272,7 @@
         addContainer.style.display = 'block';
       }
 
+      // Initial load
       loadQueries();
     });
   </script>
