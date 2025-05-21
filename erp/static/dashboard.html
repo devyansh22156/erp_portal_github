@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - ERP Portal</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="header"></div>
+  <main>
+    <!-- Add Query Button -->
+    <div id="addQueryContainer" class="card">
+      <button id="showFormBtn">+ Add New Query</button>
+    </div>
+
+    <!-- Query Form (hidden by default) -->
+    <div class="card" id="queryCard" style="display: none;">
+      <h2 id="formTitle">New Client Query</h2>
+      <form id="queryForm">
+        <label>Date</label>
+        <input type="text" id="date" readonly />
+
+        <label for="clientName">Client Name</label>
+        <input type="text" id="clientName" required />
+
+        <label for="clientType">Client Type</label>
+        <input type="text" id="clientType" required />
+
+        <label for="location">Location</label>
+        <input type="text" id="location" required />
+
+        <label for="areaSqft">Area (sqft)</label>
+        <input type="number" id="areaSqft" step="0.01" required />
+
+        <label for="specification">Specification</label>
+        <textarea id="specification" rows="4"></textarea>
+
+        <label for="proposedAmount">Proposed Amount</label>
+        <input type="number" id="proposedAmount" step="0.01" required />
+
+        <label for="finalAmount">Final Amount</label>
+        <input type="number" id="finalAmount" step="0.01" />
+
+        <div class="btn-group">
+          <button type="submit" id="submitBtn">Save Query</button>
+          <button type="button" id="cancelFormBtn">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Saved Queries Table -->
+    <div class="card">
+      <h2>Saved Queries</h2>
+      <table id="queriesTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Date</th>
+            <th>Client</th>
+            <th>Type</th>
+            <th>Location</th>
+            <th>Area</th>
+            <th>Proposed</th>
+            <th>Final</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p id="emptyMsg" style="display: none;">No queries found.</p>
+    </div>
+  </main>
+
+  <script src="header.js"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      if (!protectRoute()) return;
+
+      const showBtn = document.getElementById('showFormBtn');
+      const cancelBtn = document.getElementById('cancelFormBtn');
+      const formCard = document.getElementById('queryCard');
+      const addContainer = document.getElementById('addQueryContainer');
+      const formTitle = document.getElementById('formTitle');
+      const submitBtn = document.getElementById('submitBtn');
+      const form = document.getElementById('queryForm');
+      const emptyMsg = document.getElementById('emptyMsg');
+      let editingId = null;
+
+      showBtn.addEventListener('click', () => openForm());
+      cancelBtn.addEventListener('click', () => resetForm());
+
+      form.addEventListener('submit', async e => {
+        e.preventDefault();
+        const payload = {
+          clientName: document.getElementById('clientName').value,
+          clientType: document.getElementById('clientType').value,
+          location: document.getElementById('location').value,
+          areaSqft: parseFloat(document.getElementById('areaSqft').value),
+          specification: document.getElementById('specification').value,
+          proposedAmount: parseFloat(document.getElementById('proposedAmount').value),
+          finalAmount: parseFloat(document.getElementById('finalAmount').value) || null,
+          status: 'Ongoing'
+        };
+
+        const url = editingId ? `/api/queries/${editingId}` : '/api/queries';
+        const method = editingId ? 'PUT' : 'POST';
+
+        await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+          body: JSON.stringify(payload)
+        });
+
+        resetForm();
+        loadQueries();
+      });
+
+      async function loadQueries() {
+        const res = await fetch('/api/queries', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
+        const queries = await res.json();
+        const tbody = document.querySelector('#queriesTable tbody');
+        tbody.innerHTML = '';
+
+        if (queries.length === 0) {
+          emptyMsg.style.display = 'block';
+          return;
+        } else {
+          emptyMsg.style.display = 'none';
+        }
+
+        queries.forEach(q => {
+          const row = document.createElement('tr');
+          const status = q.status || 'Ongoing';
+          let statusClass = '';
+          if (status === 'Ongoing') statusClass = 'status-ongoing';
+          if (status === 'Approved') statusClass = 'status-approved';
+          if (status === 'Closed') statusClass = 'status-closed';
+
+          row.innerHTML = `
+            <td>${q.id}</td>
+            <td>${new Date(q.created_at).toLocaleDateString()}</td>
+            <td>${q.client_name}</td>
+            <td>${q.client_type}</td>
+            <td>${q.location}</td>
+            <td>${q.area_sqft}</td>
+            <td>${q.proposed_amount}</td>
+            <td>${q.final_amount || ''}</td>
+            <td><span class="${statusClass}">${status}</span></td>
+            <td>
+              <button onclick="editFull(${q.id})">Edit</button>
+              <button onclick="updateStatus(${q.id}, 'Ongoing')">Ongoing</button>
+              <button onclick="updateStatus(${q.id}, 'Approved')">Approve</button>
+              <button onclick="updateStatus(${q.id}, 'Closed')">Close</button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+      }
+
+      window.editFull = async function(id) {
+        const res = await fetch(`/api/queries/${id}`, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
+        const q = await res.json();
+
+        editingId = id;
+        formTitle.textContent = 'Edit Client Query';
+        submitBtn.textContent = 'Update Query';
+        formCard.style.display = 'block';
+        addContainer.style.display = 'none';
+
+        document.getElementById('date').value = new Date(q.created_at).toISOString().slice(0,10);
+        document.getElementById('clientName').value = q.client_name;
+        document.getElementById('clientType').value = q.client_type;
+        document.getElementById('location').value = q.location;
+        document.getElementById('areaSqft').value = q.area_sqft;
+        document.getElementById('specification').value = q.specification;
+        document.getElementById('proposedAmount').value = q.proposed_amount;
+        document.getElementById('finalAmount').value = q.final_amount;
+      };
+
+      window.updateStatus = async function(id, status) {
+        await fetch(`/api/queries/${id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+          body: JSON.stringify({ status })
+        });
+        loadQueries();
+      };
+
+      function openForm() {
+        editingId = null;
+        formTitle.textContent = 'New Client Query';
+        submitBtn.textContent = 'Save Query';
+        document.getElementById('date').value = new Date().toISOString().slice(0,10);
+        form.reset();
+        formCard.style.display = 'block';
+        addContainer.style.display = 'none';
+      }
+
+      function resetForm() {
+        editingId = null;
+        form.reset();
+        formCard.style.display = 'none';
+        addContainer.style.display = 'block';
+      }
+
+      loadQueries();
+    });
+  </script>
+</body>
+</html>

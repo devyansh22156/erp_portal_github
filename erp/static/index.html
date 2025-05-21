@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ERP Portal</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="header"></div>
+  <main>
+    <div class="welcome-container">
+      <h2>Welcome to the ERP Portal</h2>
+      <p>A comprehensive project management system for handling client queries and project proposals.</p>
+      <div class="btn-group">
+        <a href="login.html"><button>Login</button></a>
+        <a href="register.html"><button style="background-color: #6f9eeb;">Register</button></a>
+      </div>
+    </div>
+  </main>
+  <script src="header.js"></script>
+  <script>
+    if (localStorage.getItem('token')) {
+      validateToken().then(valid => {
+        if (valid) window.location = 'dashboard.html'; else clearAuth();
+      });
+    }
+  </script>
+</body>
+</html>

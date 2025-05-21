@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register - ERP Portal</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="header"></div>
+  <div class="form-container">
+    <h2>Create an Account</h2>
+    <form id="registerForm">
+      <label for="name">Full Name</label>
+      <input type="text" id="name" name="name" required>
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" required>
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" required minlength="8">
+      <small>Password must be at least 8 characters</small>
+      <label for="role">Role</label>
+      <select id="role" name="role" required>
+        <option value="employee">Employee</option>
+        <option value="owner">Owner</option>
+      </select>
+      <button type="submit">Register</button>
+    </form>
+    <p id="registerErrorMsg" class="error"></p>
+    <p id="registerSuccessMsg" class="success"></p>
+    <p>Already have an account? <a href="login.html">Login here</a></p>
+  </div>
+  <script src="header.js"></script>
+  <script>
+    if (localStorage.getItem('token')) validateToken().then(v=>v?window.location='dashboard.html':clearAuth());
+    document.getElementById('registerForm').addEventListener('submit',async e=>{
+      e.preventDefault(); const err=document.getElementById('registerErrorMsg'), succ=document.getElementById('registerSuccessMsg'); err.innerText=''; succ.innerText='';
+      const name=e.target.name.value.trim(), email=e.target.email.value.trim(), password=e.target.password.value, role=e.target.role.value;
+      if(!name||!email||!password){err.innerText='Please fill in all fields';return;} if(password.length<8){err.innerText='Password must be at least 8 characters';return;}
+      try {
+        const res=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,password,role})});
+        if(!res.ok){const data=await res.json();throw new Error(data.error);} succ.innerText='Registration successful! Redirecting...'; setTimeout(()=>window.location='login.html',1500);
+      } catch(er){err.innerText=er.message||'Registration failed.';}
+    });
+  </script>
+</body>
+</html>
